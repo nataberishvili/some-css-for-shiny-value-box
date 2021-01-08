@@ -92,6 +92,13 @@ product_cat = dak %>% distinct(product_category) %>% pull()
  
 }
 
+#section-column-2 {
+  padding: 1em 1em 1em 4em;
+  margin-bottom: 10px;
+  background: lightgray 5px center/3em no-repeat;
+  border: 2px solid black;
+  border-radius: 10px;
+}
 
 ```
 
