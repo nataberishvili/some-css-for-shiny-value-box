@@ -1,0 +1,208 @@
+---
+title: "Dashboard"
+output: 
+  flexdashboard::flex_dashboard:
+    theme: readable
+    orientation: rows
+    vertical_layout: fill
+runtime: shiny
+
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(plotly)
+library(shiny)
+library(dplyr)
+library(formattable)
+library(lubridate)
+sales <- read.csv("sales.csv")
+product <- read.csv("product.csv")
+
+
+dak <- merge(sales, product, by = "product_id")
+
+
+dak2 <- dak %>% group_by(transaction_date, product_category) %>% summarise(sumk = sum(unit_price*quantity))
+
+dak3 <- dak %>% group_by(product_category) %>% summarise(sum_by_category = sum(unit_price*quantity)) %>% arrange(desc(sum_by_category))
+
+
+#sort 
+dak3$product_category <- factor(dak3$product_category, levels = c(as.character(dak3$product_category)))
+
+product_cat = dak %>% distinct(product_category) %>% pull()
+
+
+#
+#dak2$transaction_date <- as.Date(dak2$transaction_date)
+
+
+```
+
+
+
+
+```{css, echo = FALSE}
+
+.chart-title , #section-column{
+  background-color: #d3d3d3;
+  color: white;
+  font-family: "Lucida Console", "Courier New", monospace;
+   font-size: 15px;
+
+}
+
+
+
+#section-column-1 {
+ height: 80px;
+ color: #d3d3d3;
+   font-family: "Lucida Console", "Courier New", monospace;
+    font-size: 12px;
+ 
+ 
+}
+
+.value-output {
+  font-size: 22px;
+  position: relative;
+  top: -10px;
+  border-radius: 50%;
+  
+  
+}
+
+.caption {
+  font-size: 12px;
+  position:relative;
+  bottom: 20px; 
+}
+
+```
+
+
+
+Column {.sidebar}
+--------------------------------------------------------------------------
+
+```{r}
+selectInput("product_choice", label = h5("Select the Product"), 
+            choices = product_cat, selected = product_cat[1])
+
+
+#dateRangeInput("date_range", label = h5("Select the Date range:"),
+#               start = min(dak2$transaction_date),
+ #              end = max(dak2$transaction_date),
+    #            min = min(dak2$transaction_date), 
+    #               max = max(dak2$transaction_date),
+     #           format = "mm/dd/yyyy",
+     #          separator = "/")
+
+```
+
+Column 1
+-----------------------------------------------------------------------
+
+### Total Profit
+
+```{r}
+renderValueBox({
+  total.orders  <- paste0(prettyNum(round(sum(dak$sales)), big.mark = ","), "$")
+  valueBox(
+    value = total.orders, color = "#36454f" 
+    
+  )
+})
+
+# "#08526b"
+```
+
+### Total Transactions 
+
+```{r}
+renderValueBox({
+  total.transactions  <- prettyNum(length(unique(dak$transaction_id)), big.mark = ",")
+  valueBox(
+    value = total.transactions, color = "#536872"
+  )
+})
+
+```
+
+### Total Quantity Sold 
+
+```{r}
+renderValueBox({
+  total.q  <- prettyNum(round(sum(dak$order)), big.mark = ",")
+  valueBox(
+    value = total.q, color = "#536878"
+  )
+})
+
+```
+
+### Total Customers 
+
+```{r}
+renderValueBox({
+  total.customers  <- prettyNum(length(unique(dak$customer_id)), big.mark = ",")
+  valueBox(
+    value = total.customers, color = "	#708090"
+  )
+})
+
+```
+
+#renderValueBox({
+#    valueBox( #     "55%",
+#      HTML(paste("test_value that is super long like this",br(),"Estimated: 98%")),
+#     icon = icon("credit-card")
+#    )})
+  
+
+
+### Total Profit
+
+```{r}
+renderValueBox({
+  total.orders  <- round(sum(dak$sales))
+  valueBox(
+    value = total.orders, color = "#6e7f80"
+  )
+})
+
+```
+
+
+Column 2 {data-height = 600}
+-----------------------------------------------------------------------
+
+### Profit by Product
+
+```{r}
+renderPlotly({
+  
+ dak2 %>% filter(product_category %in% input$product_choice) %>%
+plot_ly(x = ~ transaction_date, y = ~ sumk, type = 'scatter', mode = 'lines',  line = list(color = "#e73c29", width = 4), fill = 'tozeroy') %>%
+  layout(title = "",
+         xaxis = list(title = "" ,
+                      zeroline = FALSE),
+         yaxis = list(title = "" ,
+                      zeroline = FALSE))
+
+
+
+
+})
+```
+
+
+
+```{r}
+renderFormattable({
+  formattable(dak3)
+  })
+
+```
+
