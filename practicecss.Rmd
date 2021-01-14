@@ -18,17 +18,32 @@ library(htmltools)
 library(tidyr)
 library(formattable)
 library(lubridate)
+
 sales <- read.csv("sales.csv")
 product <- read.csv("product.csv")
 
 
 dak <- merge(sales, product, by = "product_id")
+ #names(dak)
 
 
+### rename (Recode) categorical variables
+dak$product_category <- recode(dak$product_category,
+  'Drinking Chocolate' = 'D.Chocolate',
+  'Packaged Chocolate' = 'P.Chocolate')
 
+
+### dates
+dak$transaction_date <- factor(as.character(dak$transaction_date))
+dak$transaction_date <- as.Date(dak$transaction_date, format = "%Y-%m-%d")
+
+head(dak$transaction_date)
+
+#
 dak2 <- dak %>% group_by(transaction_date, product_category) %>% summarise(sumk = sum(unit_price*quantity))
  #dak2 <- dak2 %>% dak2$changeround((((dak2$sumk)-lag(dak2$sumk))/lag(dak2$sumk)*100),2)
-
+lala <- as.data.frame(dak2)
+lala
 dak3 <- dak %>% group_by(product_category) %>% summarise(sum_by_category = sum(unit_price*quantity)) %>% arrange(desc(sum_by_category))
 
 
@@ -52,7 +67,6 @@ product_cat = dak %>% distinct(product_category) %>% pull()
    
 }
 
-
 .value-output {
   font-size: 22px;
   position: relative;
@@ -69,12 +83,14 @@ product_cat = dak %>% distinct(product_category) %>% pull()
 }
 
 #section-row-2 {
+  flex-direction: row;
   padding: 1em 1em 1em 1em;
   margin-bottom: 16px;
   background: lightgray 5px center/3em no-repeat;
   border: 2px solid black;
   border-radius: 10px;
 }
+
 
 #section-row-3 {
  font-family: "Lucida Console", "Courier New", monospace;
@@ -107,6 +123,7 @@ background-color: lightgrey;
 
 
 
+
 ```
 
 
@@ -122,13 +139,15 @@ selectInput("product_choice", label = h5("Select the Product"),
             choices = product_cat, selected = product_cat[1])
 
 
-#dateRangeInput("date_range", label = h5("Select the Date range:"),
-#               start = min(dak2$transaction_date),
- #              end = max(dak2$transaction_date),
-    #            min = min(dak2$transaction_date), 
-    #               max = max(dak2$transaction_date),
-     #           format = "mm/dd/yyyy",
-     #          separator = "/")
+dateRangeInput("date_range", label = h5("Select the Date range:"),
+               start = min(dak2$transaction_date),
+               end = max(dak2$transaction_date),
+                min = min(dak2$transaction_date), 
+                  max = max(dak2$transaction_date),
+               format = "mm/dd/yyyy",
+              separator = "-")
+
+
 
 ```
 
@@ -193,12 +212,13 @@ renderValueBox({
 Row 2 {data-height=600}
 -----------------------------------------------------------------------
 
-### Profit - Filter by Product                         
+### Profit                       
 
-```{r}
+```{r, fig.height=5, fig.width=5}
 renderPlotly({
   
- kj <- dak2 %>% filter(product_category %in% input$product_choice) %>%
+ kj <- dak2 %>% filter(product_category %in% input$product_choice,
+                       transaction_date >= input$date_range[1] & transaction_date <= input$date_range[2]) %>%
 plot_ly(x = ~ transaction_date, y = ~ sumk, type = 'scatter', mode = 'markers+lines',  line = list(color = "#57A0D3", width = 4), fill = 'tozeroy') %>%
   layout(title = "",
          xaxis = list(title = "" ,
@@ -207,10 +227,34 @@ plot_ly(x = ~ transaction_date, y = ~ sumk, type = 'scatter', mode = 'markers+li
                       zeroline = FALSE))
 
  
+})
+```
 
+
+
+```{r, fig.height=5, fig.width=3}
+renderPlotly({
+  #plot2
+#dak3$product_category
+plot_ly(
+  data=dak3,
+  x = ~product_category,
+  y = ~sum_by_category,
+  name = "SF Zoo",
+  type = "bar",
+  marker = list(color = '#57A0D3',
+                           line = list(color = '#57A0D3', width = 2)), hoverinfo = "x+y") %>%
+    add_text(text = ~paste0( " (",   scales::percent(sum_by_category/sum(sum_by_category)),")"), 
+           textposition = "top", 
+           textfont = list(size = 7, color = "black"), 
+           showlegend = FALSE) %>%
+    layout(xaxis = list(title = ""), yaxis = list(title = ""))
 
 })
 ```
+
+
+
 
 Row 3 {.tabset data-height=250}
 -----------------------------------------------------------------------
@@ -219,8 +263,14 @@ Row 3 {.tabset data-height=250}
 
 ```{r}
 renderFormattable({
-  
-  formattable(dak2 %>% filter(product_category %in% input$product_choice) %>% spread(transaction_date,  sumk), align = c("l",rep("r", NCOL(dak2) - 3)))
+#amount difference
+formattable(dif.value <- lala %>% filter(product_category %in% input$product_choice) %>%
+mutate(amount.dif = sumk - lag(sumk),
+                             perc.dif = round((sumk - lag(sumk))/lag(sumk)*100)) %>%
+  select(transaction_date, sumk, amount.dif, perc.dif) %>% gather(var, value, sumk:perc.dif) %>% spread(transaction_date, value, 2:3), 
+  list(`var` = formatter("span", style = ~ style(color = "grey",font.weight = "bold")), 
+                 area(row = 2:2) ~ color_tile("grey", "#57A0D3"))
+)
 
 })
 
@@ -246,4 +296,6 @@ renderFormattable({
 
 })
 
+
 ```
+
